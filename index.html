@@ -1,0 +1,422 @@
+<title>Fluency Deck</title>
+<style>
+/* Layout: header with tabs + search/shuffle controls, card grid (8 cards), pager below.
+   Color: warm paper ground, deep ink text, single teal accent for actions/known-state. */
+:root{
+  --bg:#faf7f1; --surface:#ffffff; --surface-2:#f1ece0; --border:#e3dbc9;
+  --ink:#241f17; --ink-2:#5b5346; --ink-3:#8a8171;
+  --accent:#1f7a6c; --accent-ink:#ffffff; --accent-soft:#e2f1ec;
+  --known:#c77d3a; --known-soft:#fbe9d8;
+  --shadow: 0 1px 2px rgba(36,31,23,.06), 0 6px 16px -8px rgba(36,31,23,.18);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15130f; --surface:#1d1a14; --surface-2:#242019; --border:#352f24;
+    --ink:#f3efe4; --ink-2:#c7bfac; --ink-3:#938a76;
+    --accent:#3fcab2; --accent-ink:#0b1512; --accent-soft:#163029;
+    --known:#f0a85f; --known-soft:#2e2316;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 24px -10px rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15130f; --surface:#1d1a14; --surface-2:#242019; --border:#352f24;
+  --ink:#f3efe4; --ink-2:#c7bfac; --ink-3:#938a76;
+  --accent:#3fcab2; --accent-ink:#0b1512; --accent-soft:#163029;
+  --known:#f0a85f; --known-soft:#2e2316;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 24px -10px rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font-family:'Source Sans 3',system-ui,-apple-system,Segoe UI,sans-serif; padding-inline:20px;}
+h1,h2,.display{font-family:'Fraunces',Georgia,'Times New Roman',serif;}
+.wrap{max-width:1180px; margin:0 auto; padding-block:28px 60px;}
+
+header.top{display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:10px 20px; margin-bottom:6px;}
+.brand{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+.brand h1{font-size:1.9rem; font-weight:600; margin:0; letter-spacing:-0.01em;}
+.brand .tag{color:var(--ink-3); font-size:.92rem;}
+.stats{display:flex; gap:14px; font-size:.85rem; color:var(--ink-2); font-variant-numeric:tabular-nums;}
+.stats b{color:var(--ink); font-weight:600;}
+
+nav.tabs{display:flex; gap:6px; margin-top:22px; border-bottom:1px solid var(--border); flex-wrap:wrap;}
+nav.tabs button{
+  appearance:none; border:none; background:transparent; color:var(--ink-2);
+  font-family:inherit; font-size:.98rem; font-weight:600; padding:10px 16px;
+  cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;
+  transition:color .15s ease, border-color .15s ease;
+}
+nav.tabs button:hover{color:var(--ink);}
+nav.tabs button[aria-selected="true"]{color:var(--accent); border-bottom-color:var(--accent);}
+nav.tabs button .count{color:var(--ink-3); font-weight:500; font-size:.85em;}
+
+.controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-block:18px 20px;}
+.search{position:relative; flex:1 1 220px; min-width:0;}
+.search input{
+  width:100%; padding:10px 14px 10px 36px; border-radius:10px; border:1px solid var(--border);
+  background:var(--surface); color:var(--ink); font-family:inherit; font-size:.95rem;
+}
+.search input:focus{outline:2px solid var(--accent); outline-offset:1px;}
+.search svg{position:absolute; left:11px; top:50%; transform:translateY(-50%); width:16px; height:16px; stroke:var(--ink-3); pointer-events:none;}
+.btn{
+  appearance:none; border:1px solid var(--border); background:var(--surface); color:var(--ink);
+  font-family:inherit; font-size:.9rem; font-weight:600; padding:10px 16px; border-radius:10px;
+  cursor:pointer; display:inline-flex; align-items:center; gap:7px; white-space:nowrap;
+  transition:background .15s ease, border-color .15s ease, transform .1s ease;
+}
+.btn:hover{border-color:var(--accent);}
+.btn:active{transform:scale(.97);}
+.btn svg{width:15px; height:15px; stroke:currentColor;}
+.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+.btn.toggle[aria-pressed="true"]{background:var(--accent-soft); border-color:var(--accent); color:var(--accent);}
+.seg{display:flex; border:1px solid var(--border); border-radius:10px; overflow:hidden;}
+.seg button{appearance:none; border:none; background:var(--surface); color:var(--ink-2); font-family:inherit; font-size:.85rem; font-weight:600; padding:9px 13px; cursor:pointer;}
+.seg button + button{border-left:1px solid var(--border);}
+.seg button[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink);}
+
+.progress-row{display:flex; align-items:center; gap:10px; margin-bottom:18px; color:var(--ink-3); font-size:.82rem;}
+.progress-bar{flex:1; height:6px; border-radius:99px; background:var(--surface-2); overflow:hidden;}
+.progress-bar > span{display:block; height:100%; background:var(--known); border-radius:99px; transition:width .3s ease;}
+
+.grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; min-height:120px;}
+.card{
+  background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 18px 16px;
+  box-shadow:var(--shadow); display:flex; flex-direction:column; gap:10px; position:relative;
+  min-width:0;
+}
+.card[data-known="true"]{border-color:var(--known);}
+.card-head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.card-term{font-family:'Fraunces',Georgia,serif; font-size:1.18rem; font-weight:600; line-height:1.25; word-wrap:break-word;}
+.known-btn{
+  flex:0 0 auto; width:30px; height:30px; border-radius:99px; border:1.5px solid var(--border);
+  background:var(--surface); color:var(--ink-3); cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:all .15s ease;
+}
+.known-btn svg{width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2.3;}
+.known-btn[aria-pressed="true"]{background:var(--known-soft); border-color:var(--known); color:var(--known);}
+.card-meaning{color:var(--ink-2); font-size:.92rem; line-height:1.45;}
+.card-ex-label{font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3); margin-top:4px; font-weight:600;}
+.card-examples{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px;}
+.card-examples li{font-size:.86rem; color:var(--ink); line-height:1.4; padding-left:14px; position:relative;}
+.card-examples li::before{content:"\2014"; position:absolute; left:0; color:var(--ink-3); font-size:.8em;}
+.card-badge{position:absolute; top:-9px; right:14px; background:var(--known); color:var(--accent-ink); font-size:.66rem; font-weight:700; padding:3px 9px; border-radius:99px; letter-spacing:.03em; text-transform:uppercase;}
+
+.empty{text-align:center; padding:50px 20px; color:var(--ink-3);}
+.empty b{color:var(--ink-2);}
+
+.pager{display:flex; align-items:center; justify-content:center; gap:14px; margin-top:28px;}
+.pager .btn{padding:9px 14px;}
+.pager .btn:disabled{opacity:.35; cursor:not-allowed; border-color:var(--border);}
+.pager .pageinfo{font-size:.88rem; color:var(--ink-2); font-variant-numeric:tabular-nums; min-width:92px; text-align:center;}
+
+footer.note{margin-top:46px; padding-top:18px; border-top:1px solid var(--border); color:var(--ink-3); font-size:.8rem; line-height:1.6;}
+footer.note b{color:var(--ink-2);}
+
+@media (max-width:640px){
+  .brand h1{font-size:1.5rem;}
+  .stats{width:100%; order:3;}
+  .grid{grid-template-columns:1fr;}
+}
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap">
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Fluency Deck</h1>
+      <span class="tag">idioms &amp; vocabulary for speaking like a native</span>
+    </div>
+    <div class="stats" id="statsRow"></div>
+  </header>
+
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+
+  <div class="controls">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="searchInput" type="text" placeholder="Search this set&hellip;" autocomplete="off">
+    </div>
+    <div class="seg" id="filterSeg" role="group" aria-label="Filter by known status">
+      <button data-filter="all" aria-pressed="true">All</button>
+      <button data-filter="learning" aria-pressed="false">Learning</button>
+      <button data-filter="known" aria-pressed="false">Known</button>
+    </div>
+    <button class="btn toggle" id="randomToggle" aria-pressed="false" title="Show cards in random order">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+      Random
+    </button>
+    <button class="btn" id="shuffleBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      Reshuffle
+    </button>
+  </div>
+
+  <div class="progress-row">
+    <span id="progressLabel">0 known</span>
+    <div class="progress-bar"><span id="progressFill" style="width:0%"></span></div>
+    <span id="progressPct">0%</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="emptyState" hidden>No cards match <b id="emptyQuery"></b> in this set.</div>
+
+  <div class="pager" id="pager">
+    <button class="btn" id="prevBtn">&larr; Prev</button>
+    <span class="pageinfo" id="pageInfo">Page 1 of 1</span>
+    <button class="btn" id="nextBtn">Next &rarr;</button>
+  </div>
+
+  <footer class="note">
+    <b>How to use this:</b> 8 cards show at a time &mdash; use Prev/Next to page through, or turn on <b>Random</b> to see a fresh shuffled set each time you reload. Tap the circle on a card to mark it <b>known</b>; your progress is saved in this browser only (not synced anywhere) via localStorage, so it persists across visits on this device but won't follow you to another device or browser. Use the <b>Learning</b> filter to focus only on what you haven't marked yet. Data: 406 idioms, 508 nouns, 500 verbs, each with 4 example sentences, generated for everyday spoken/written fluency.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var SETS = [
+    {key:"idioms", label:"Idioms & Phrases", file:"data/idioms.min.json", termField:"phrase"},
+    {key:"nouns", label:"Nouns", file:"data/nouns.min.json", termField:"word"},
+    {key:"verbs", label:"Verbs", file:"data/verbs.min.json", termField:"word"}
+  ];
+  var PAGE_SIZE = 8;
+  var STORAGE_KEY = "fluencydeck.known.v1";
+
+  var state = {
+    active: "idioms",
+    data: {},            // key -> array of {term, meaning, examples}
+    order: {},           // key -> array of indices (current display order, filtered)
+    page: {idioms:0, nouns:0, verbs:0},
+    query: "",
+    filter: "all",
+    random: false,
+    known: loadKnown()
+  };
+
+  function loadKnown(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    }catch(e){ return {}; }
+  }
+  function saveKnown(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state.known)); }catch(e){}
+  }
+  function cardId(setKey, term){ return setKey + "::" + term; }
+
+  function shuffle(arr){
+    var a = arr.slice();
+    for(var i=a.length-1;i>0;i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var t=a[i]; a[i]=a[j]; a[j]=t;
+    }
+    return a;
+  }
+
+  // ---- load data ----
+  var loaded = 0;
+  SETS.forEach(function(set){
+    fetch(set.file).then(function(r){ return r.json(); }).then(function(json){
+      state.data[set.key] = json.map(function(item){
+        return {
+          term: item[set.termField],
+          meaning: item.meaning,
+          examples: item.examples || []
+        };
+      });
+      loaded++;
+      if(loaded === SETS.length){ init(); }
+    }).catch(function(err){
+      document.getElementById("grid").innerHTML =
+        '<div class="empty">Could not load <b>'+set.file+'</b>. Make sure this page is opened alongside its /data folder.</div>';
+    });
+  });
+
+  function init(){
+    buildTabs();
+    buildStats();
+    applyFilterAndOrder(state.active, true);
+    render();
+    bindEvents();
+  }
+
+  function buildTabs(){
+    var nav = document.getElementById("tabs");
+    nav.innerHTML = "";
+    SETS.forEach(function(set){
+      var btn = document.createElement("button");
+      btn.setAttribute("role","tab");
+      btn.setAttribute("aria-selected", set.key === state.active ? "true" : "false");
+      btn.dataset.key = set.key;
+      btn.innerHTML = set.label + ' <span class="count">' + state.data[set.key].length + '</span>';
+      btn.addEventListener("click", function(){
+        state.active = set.key;
+        state.query = "";
+        document.getElementById("searchInput").value = "";
+        Array.prototype.forEach.call(nav.children, function(b){ b.setAttribute("aria-selected", b===btn ? "true":"false"); });
+        applyFilterAndOrder(state.active, true);
+        render();
+      });
+      nav.appendChild(btn);
+    });
+  }
+
+  function buildStats(){
+    var total = SETS.reduce(function(s,set){ return s + state.data[set.key].length; }, 0);
+    var knownCount = Object.keys(state.known).filter(function(k){ return state.known[k]; }).length;
+    document.getElementById("statsRow").innerHTML =
+      '<span><b>'+total+'</b> total entries</span><span><b>'+knownCount+'</b> marked known</span>';
+  }
+
+  function matchesQuery(item, q){
+    if(!q) return true;
+    q = q.toLowerCase();
+    if(item.term.toLowerCase().indexOf(q) !== -1) return true;
+    if(item.meaning.toLowerCase().indexOf(q) !== -1) return true;
+    return item.examples.some(function(ex){ return ex.toLowerCase().indexOf(q) !== -1; });
+  }
+
+  function applyFilterAndOrder(key, resetPage){
+    var items = state.data[key];
+    var idx = [];
+    for(var i=0;i<items.length;i++){
+      var item = items[i];
+      var id = cardId(key, item.term);
+      var isKnown = !!state.known[id];
+      if(state.filter === "known" && !isKnown) continue;
+      if(state.filter === "learning" && isKnown) continue;
+      if(!matchesQuery(item, state.query)) continue;
+      idx.push(i);
+    }
+    if(state.random){ idx = shuffle(idx); }
+    state.order[key] = idx;
+    if(resetPage) state.page[key] = 0;
+  }
+
+  function render(){
+    var key = state.active;
+    var items = state.data[key];
+    var order = state.order[key] || [];
+    var totalPages = Math.max(1, Math.ceil(order.length / PAGE_SIZE));
+    if(state.page[key] >= totalPages) state.page[key] = totalPages - 1;
+    if(state.page[key] < 0) state.page[key] = 0;
+
+    var start = state.page[key] * PAGE_SIZE;
+    var pageIdx = order.slice(start, start + PAGE_SIZE);
+
+    var grid = document.getElementById("grid");
+    var emptyState = document.getElementById("emptyState");
+
+    if(pageIdx.length === 0){
+      grid.innerHTML = "";
+      grid.hidden = true;
+      emptyState.hidden = false;
+      document.getElementById("emptyQuery").textContent = state.query ? ('"'+state.query+'"') : "this filter";
+    } else {
+      grid.hidden = false;
+      emptyState.hidden = true;
+      grid.innerHTML = pageIdx.map(function(i){
+        var item = items[i];
+        var id = cardId(key, item.term);
+        var isKnown = !!state.known[id];
+        return '' +
+        '<div class="card" data-known="'+isKnown+'">' +
+          (isKnown ? '<span class="card-badge">Known</span>' : '') +
+          '<div class="card-head">' +
+            '<div class="card-term">'+escapeHtml(item.term)+'</div>' +
+            '<button class="known-btn" aria-pressed="'+isKnown+'" data-id="'+escapeAttr(id)+'" title="Mark as known">' +
+              '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>' +
+            '</button>' +
+          '</div>' +
+          '<div class="card-meaning">'+escapeHtml(item.meaning)+'</div>' +
+          '<div class="card-ex-label">Examples</div>' +
+          '<ul class="card-examples">' +
+            item.examples.map(function(ex){ return '<li>'+escapeHtml(ex)+'</li>'; }).join("") +
+          '</ul>' +
+        '</div>';
+      }).join("");
+    }
+
+    document.getElementById("pageInfo").textContent = "Page " + (state.page[key]+1) + " of " + totalPages + " — " + order.length + " cards";
+    document.getElementById("prevBtn").disabled = state.page[key] <= 0;
+    document.getElementById("nextBtn").disabled = state.page[key] >= totalPages - 1;
+
+    updateProgress();
+    buildStats();
+  }
+
+  function updateProgress(){
+    var key = state.active;
+    var items = state.data[key];
+    var total = items.length;
+    var knownCount = items.filter(function(item){ return !!state.known[cardId(key, item.term)]; }).length;
+    var pct = total ? Math.round((knownCount/total)*100) : 0;
+    document.getElementById("progressLabel").textContent = knownCount + " of " + total + " known";
+    document.getElementById("progressFill").style.width = pct + "%";
+    document.getElementById("progressPct").textContent = pct + "%";
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function escapeAttr(s){ return escapeHtml(s); }
+
+  function bindEvents(){
+    document.getElementById("grid").addEventListener("click", function(e){
+      var btn = e.target.closest(".known-btn");
+      if(!btn) return;
+      var id = btn.dataset.id;
+      state.known[id] = !state.known[id];
+      saveKnown();
+      render();
+    });
+
+    document.getElementById("searchInput").addEventListener("input", function(e){
+      state.query = e.target.value.trim();
+      applyFilterAndOrder(state.active, true);
+      render();
+    });
+
+    document.getElementById("filterSeg").addEventListener("click", function(e){
+      var btn = e.target.closest("button[data-filter]");
+      if(!btn) return;
+      state.filter = btn.dataset.filter;
+      Array.prototype.forEach.call(document.querySelectorAll("#filterSeg button"), function(b){
+        b.setAttribute("aria-pressed", b===btn ? "true":"false");
+      });
+      applyFilterAndOrder(state.active, true);
+      render();
+    });
+
+    document.getElementById("randomToggle").addEventListener("click", function(){
+      state.random = !state.random;
+      this.setAttribute("aria-pressed", state.random ? "true":"false");
+      applyFilterAndOrder(state.active, true);
+      render();
+    });
+
+    document.getElementById("shuffleBtn").addEventListener("click", function(){
+      state.random = true;
+      document.getElementById("randomToggle").setAttribute("aria-pressed","true");
+      applyFilterAndOrder(state.active, true);
+      render();
+    });
+
+    document.getElementById("prevBtn").addEventListener("click", function(){
+      state.page[state.active]--;
+      render();
+      window.scrollTo({top:0, behavior:"smooth"});
+    });
+    document.getElementById("nextBtn").addEventListener("click", function(){
+      state.page[state.active]++;
+      render();
+      window.scrollTo({top:0, behavior:"smooth"});
+    });
+  }
+})();
+</script>
