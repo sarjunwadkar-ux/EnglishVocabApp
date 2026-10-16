@@ -105,11 +105,18 @@ nav.tabs button .count{color:var(--ink-3); font-weight:500; font-size:.85em;}
 .empty{text-align:center; padding:50px 20px; color:var(--ink-3);}
 .empty b{color:var(--ink-2);}
 
-.pager{display:flex; align-items:center; justify-content:center; gap:14px; margin-top:28px;}
-.pager.pager-top{margin-top:0; margin-bottom:16px;}
+.pager-block{margin-top:28px;}
+.pager-block:has(.pager-top){margin-top:0; margin-bottom:16px;}
+.pager{display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;}
 .pager .btn{padding:9px 14px;}
 .pager .btn:disabled{opacity:.35; cursor:not-allowed; border-color:var(--border);}
-.pager .pageinfo{font-size:.88rem; color:var(--ink-2); font-variant-numeric:tabular-nums; min-width:92px; text-align:center;}
+.pager .pageinfo{font-size:.88rem; color:var(--ink-2); font-variant-numeric:tabular-nums; display:flex; align-items:center; gap:6px;}
+.pagejump{
+  width:48px; padding:6px 4px; text-align:center; border-radius:8px; border:1px solid var(--border);
+  background:var(--surface); color:var(--ink); font-family:inherit; font-size:.88rem; font-variant-numeric:tabular-nums;
+}
+.pagejump:focus{outline:2px solid var(--accent); outline-offset:1px;}
+.pager-count{text-align:center; font-size:.8rem; color:var(--ink-3); margin-top:6px;}
 
 footer.note{margin-top:46px; padding-top:18px; border-top:1px solid var(--border); color:var(--ink-3); font-size:.8rem; line-height:1.6;}
 footer.note b{color:var(--ink-2);}
@@ -160,19 +167,29 @@ footer.note b{color:var(--ink-2);}
     <span id="progressPct">0%</span>
   </div>
 
-  <div class="pager pager-top" id="pagerTop">
-    <button class="btn" id="prevBtnTop">&larr; Prev</button>
-    <span class="pageinfo" id="pageInfoTop">Page 1 of 1</span>
-    <button class="btn" id="nextBtnTop">Next &rarr;</button>
+  <div class="pager-block" id="pagerTopBlock">
+    <div class="pager pager-top" id="pagerTop">
+      <button class="btn" id="firstBtnTop">&laquo; First</button>
+      <button class="btn" id="prevBtnTop">&larr; Prev</button>
+      <span class="pageinfo">Page <input type="number" class="pagejump" id="pageJumpTop" min="1" value="1"> of <span id="pageTotalTop">1</span></span>
+      <button class="btn" id="nextBtnTop">Next &rarr;</button>
+      <button class="btn" id="lastBtnTop">Last &raquo;</button>
+    </div>
+    <div class="pager-count" id="pagerCountTop"></div>
   </div>
 
   <div class="grid" id="grid"></div>
   <div class="empty" id="emptyState" hidden>No cards match <b id="emptyQuery"></b> in this set.</div>
 
-  <div class="pager" id="pager">
-    <button class="btn" id="prevBtn">&larr; Prev</button>
-    <span class="pageinfo" id="pageInfo">Page 1 of 1</span>
-    <button class="btn" id="nextBtn">Next &rarr;</button>
+  <div class="pager-block">
+    <div class="pager" id="pager">
+      <button class="btn" id="firstBtn">&laquo; First</button>
+      <button class="btn" id="prevBtn">&larr; Prev</button>
+      <span class="pageinfo">Page <input type="number" class="pagejump" id="pageJump" min="1" value="1"> of <span id="pageTotal">1</span></span>
+      <button class="btn" id="nextBtn">Next &rarr;</button>
+      <button class="btn" id="lastBtn">Last &raquo;</button>
+    </div>
+    <div class="pager-count" id="pagerCount"></div>
   </div>
 
   <footer class="note">
@@ -347,15 +364,23 @@ footer.note b{color:var(--ink-2);}
       }).join("");
     }
 
-    var pageInfoText = "Page " + (state.page[key]+1) + " of " + totalPages + " — " + order.length + " cards";
+    var currentPage = state.page[key] + 1;
+    var countText = order.length + " cards";
     var atStart = state.page[key] <= 0;
     var atEnd = state.page[key] >= totalPages - 1;
-    document.getElementById("pageInfo").textContent = pageInfoText;
-    document.getElementById("prevBtn").disabled = atStart;
-    document.getElementById("nextBtn").disabled = atEnd;
-    document.getElementById("pageInfoTop").textContent = pageInfoText;
-    document.getElementById("prevBtnTop").disabled = atStart;
-    document.getElementById("nextBtnTop").disabled = atEnd;
+
+    [["pageJump","pageTotal","firstBtn","prevBtn","nextBtn","lastBtn","pagerCount"],
+     ["pageJumpTop","pageTotalTop","firstBtnTop","prevBtnTop","nextBtnTop","lastBtnTop","pagerCountTop"]
+    ].forEach(function(ids){
+      document.getElementById(ids[0]).value = currentPage;
+      document.getElementById(ids[0]).max = totalPages;
+      document.getElementById(ids[1]).textContent = totalPages;
+      document.getElementById(ids[2]).disabled = atStart;
+      document.getElementById(ids[3]).disabled = atStart;
+      document.getElementById(ids[4]).disabled = atEnd;
+      document.getElementById(ids[5]).disabled = atEnd;
+      document.getElementById(ids[6]).textContent = countText;
+    });
 
     updateProgress();
     buildStats();
@@ -420,12 +445,41 @@ footer.note b{color:var(--ink-2);}
       render();
     });
 
-    function goPrev(){ state.page[state.active]--; render(); }
-    function goNext(){ state.page[state.active]++; render(); }
+    function totalPagesFor(key){
+      return Math.max(1, Math.ceil((state.order[key] || []).length / PAGE_SIZE));
+    }
+    function goToPage(zeroBasedPage){
+      var key = state.active;
+      var max = totalPagesFor(key) - 1;
+      state.page[key] = Math.min(Math.max(zeroBasedPage, 0), max);
+      render();
+    }
+    function goPrev(){ goToPage(state.page[state.active] - 1); }
+    function goNext(){ goToPage(state.page[state.active] + 1); }
+    function goFirst(){ goToPage(0); }
+    function goLast(){ goToPage(totalPagesFor(state.active) - 1); }
     document.getElementById("prevBtn").addEventListener("click", goPrev);
     document.getElementById("nextBtn").addEventListener("click", goNext);
+    document.getElementById("firstBtn").addEventListener("click", goFirst);
+    document.getElementById("lastBtn").addEventListener("click", goLast);
     document.getElementById("prevBtnTop").addEventListener("click", goPrev);
     document.getElementById("nextBtnTop").addEventListener("click", goNext);
+    document.getElementById("firstBtnTop").addEventListener("click", goFirst);
+    document.getElementById("lastBtnTop").addEventListener("click", goLast);
+
+    function bindPageJump(input){
+      function commit(){
+        var n = parseInt(input.value, 10);
+        if(!isNaN(n)){ goToPage(n - 1); }
+        else { input.value = state.page[state.active] + 1; }
+      }
+      input.addEventListener("change", commit);
+      input.addEventListener("keydown", function(e){
+        if(e.key === "Enter"){ e.preventDefault(); commit(); input.blur(); }
+      });
+    }
+    bindPageJump(document.getElementById("pageJump"));
+    bindPageJump(document.getElementById("pageJumpTop"));
   }
 })();
 </script>
